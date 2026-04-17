@@ -26,11 +26,24 @@ Run inside any git repository:
 gh-action-lint check
 ```
 
+To also check whether the actions your workflows depend on are themselves using pinned refs:
+
+```sh
+gh-action-lint check --recursive
+```
+
+Set `GITHUB_TOKEN` to authenticate requests to GitHub and avoid rate limits:
+
+```sh
+GITHUB_TOKEN=$(gh auth token) gh-action-lint check --recursive
+```
+
 ### Example output
 
 ```
 .github/workflows/ci.yml:8: action not pinned to a SHA: actions/checkout@v4
 .github/workflows/ci.yml:12: action not pinned to a SHA: actions/cache@main
+actions/checkout@11bd317f...:5: action not pinned to a SHA: actions/cache@v3
 ```
 
 Exits with code `1` if any warnings are found, making it suitable for use in CI.
@@ -39,6 +52,7 @@ Exits with code `1` if any warnings are found, making it suitable for use in CI.
 
 - All files under `.github/workflows/` (`*.yml`, `*.yaml`)
 - All `action.yml` / `action.yaml` files under `.github/actions/` (composite actions)
+- With `--recursive`: the `action.yml` of every external action used, fetched from GitHub, traversing the full dependency graph
 
 A `uses:` value is considered unsafe if the ref after `@` is not a full 40-character hex commit SHA. The following are **ignored** (not flagged):
 

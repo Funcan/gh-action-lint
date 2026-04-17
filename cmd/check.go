@@ -10,10 +10,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var recursive bool
+
 var checkCmd = &cobra.Command{
 	Use:   "check",
 	Short: "Check for actions pinned to a tag rather than a SHA",
-	RunE:  runCheck,
+	Long: `Check all GitHub Actions workflows and composite actions in the current git
+repository for any 'uses:' references not pinned to a full commit SHA.
+
+With --recursive, also fetches each used action from GitHub and checks whether
+it in turn uses any unpinned actions, traversing the full dependency graph.
+Set GITHUB_TOKEN to authenticate requests and avoid rate limits.`,
+	RunE: runCheck,
+}
+
+func init() {
+	checkCmd.Flags().BoolVarP(&recursive, "recursive", "r", false, "also check actions used by the repo's actions")
 }
 
 func runCheck(cmd *cobra.Command, args []string) error {
@@ -33,6 +45,8 @@ func runCheck(cmd *cobra.Command, args []string) error {
 	}
 
 	var total int
+	var allExternalUses []string
+
 	for _, f := range files {
 		warnings, err := lint.CheckFile(f)
 		if err != nil {
@@ -40,9 +54,28 @@ func runCheck(cmd *cobra.Command, args []string) error {
 			continue
 		}
 		for _, w := range warnings {
-			// Print path relative to repo root for readability
 			rel := strings.TrimPrefix(f, repoRoot+"/")
 			fmt.Printf("%s:%d: action not pinned to a SHA: %s\n", rel, w.Line, w.Uses)
+			total++
+		}
+
+		if recursive {
+			uses, err := lint.ExternalUsesFromFile(f)
+			if err == nil {
+				allExternalUses = append(allExternalUses, uses...)
+			}
+		}
+	}
+
+	if recursive {
+		token := os.Getenv("GITHUB_TOKEN")
+		fmt.Fprintf(os.Stderr, "checking %d external action(s) recursively...\n", len(dedupe(allExternalUses)))
+		remoteWarnings, err := lint.CheckRecursive(dedupe(allExternalUses), token)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: recursive check failed: %v\n", err)
+		}
+		for _, w := range remoteWarnings {
+			fmt.Printf("%s:%d: action not pinned to a SHA: %s\n", w.File, w.Line, w.Uses)
 			total++
 		}
 	}
@@ -59,4 +92,16 @@ func gitRepoRoot() (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+func dedupe(ss []string) []string {
+	seen := make(map[string]bool, len(ss))
+	out := make([]string, 0, len(ss))
+	for _, s := range ss {
+		if !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	return out
 }

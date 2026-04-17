@@ -11,12 +11,12 @@ func TestCheckUses(t *testing.T) {
 		uses    string
 		wantNil bool
 	}{
-		{"actions/checkout@v4", false},                                              // tag
-		{"actions/checkout@main", false},                                            // branch
-		{"actions/checkout@11bd317f7bc71dd3eee3f1bf1c58bc03de17e433", true},        // SHA - ok
-		{"actions/checkout", false},                                                 // no ref
-		{"./local-action", true},                                                    // local - ok
-		{"docker://alpine:3.18", true},                                              // docker - ok
+		{"actions/checkout@v4", false},                                      // tag
+		{"actions/checkout@main", false},                                    // branch
+		{"actions/checkout@11bd317f7bc71dd3eee3f1bf1c58bc03de17e433", true}, // SHA - ok
+		{"actions/checkout", false},                                         // no ref
+		{"./local-action", true},                                            // local - ok
+		{"docker://alpine:3.18", true},                                      // docker - ok
 	}
 
 	for _, tt := range tests {

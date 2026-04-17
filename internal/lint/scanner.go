@@ -61,44 +61,66 @@ func CheckFile(path string) ([]Warning, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	var root yaml.Node
-	if err := yaml.Unmarshal(data, &root); err != nil {
-		return nil, fmt.Errorf("parsing %s: %w", path, err)
-	}
-
-	if root.Kind == 0 {
-		return nil, nil
-	}
-
-	var warnings []Warning
-	walkNode(&root, path, &warnings)
-	return warnings, nil
+	warnings, _, err := parseContent(data, path)
+	return warnings, err
 }
 
-func walkNode(node *yaml.Node, file string, warnings *[]Warning) {
+// ExternalUsesFromFile returns all external action refs used in the file.
+func ExternalUsesFromFile(path string) ([]string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	_, uses, err := parseContent(data, path)
+	return uses, err
+}
+
+// parseContent parses YAML bytes and returns both warnings and all external uses.
+func parseContent(data []byte, source string) ([]Warning, []string, error) {
+	var root yaml.Node
+	if err := yaml.Unmarshal(data, &root); err != nil {
+		return nil, nil, fmt.Errorf("parsing %s: %w", source, err)
+	}
+	if root.Kind == 0 {
+		return nil, nil, nil
+	}
+	var warnings []Warning
+	var allUses []string
+	walkNode(&root, source, &warnings, &allUses)
+	return warnings, allUses, nil
+}
+
+func walkNode(node *yaml.Node, file string, warnings *[]Warning, allUses *[]string) {
 	if node.Kind == yaml.MappingNode {
 		for i := 0; i+1 < len(node.Content); i += 2 {
 			key := node.Content[i]
 			value := node.Content[i+1]
 			if key.Value == "uses" && value.Kind == yaml.ScalarNode {
-				if w := checkUses(value.Value, file, value.Line); w != nil {
+				u := value.Value
+				if allUses != nil && isExternalUses(u) {
+					*allUses = append(*allUses, u)
+				}
+				if w := checkUses(u, file, value.Line); w != nil {
 					*warnings = append(*warnings, *w)
 				}
 			}
-			walkNode(value, file, warnings)
+			walkNode(value, file, warnings, allUses)
 		}
 	} else {
 		for _, child := range node.Content {
-			walkNode(child, file, warnings)
+			walkNode(child, file, warnings, allUses)
 		}
 	}
+}
+
+func isExternalUses(uses string) bool {
+	return !strings.HasPrefix(uses, "./") && !strings.HasPrefix(uses, "docker://")
 }
 
 // checkUses returns a Warning if the uses value is not pinned to a SHA.
 // Local actions (./path) and docker images are ignored.
 func checkUses(uses, file string, line int) *Warning {
-	if strings.HasPrefix(uses, "./") || strings.HasPrefix(uses, "docker://") {
+	if !isExternalUses(uses) {
 		return nil
 	}
 
