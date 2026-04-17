@@ -26,7 +26,7 @@ type FixResult struct {
 // Workflow files that lack a top-level permissions block have permissions: {}
 // inserted before the jobs: key. Resolution failures are reported as FixResults
 // with Err set rather than aborting the whole file.
-func FixFile(path string, ignore *IgnoreList, resolver *Resolver) ([]FixResult, error) {
+func FixFile(path string, ignore *IgnoreList, resolver *Resolver, disabled DisabledChecks) ([]FixResult, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -42,22 +42,26 @@ func FixFile(path string, ignore *IgnoreList, resolver *Resolver) ([]FixResult, 
 	anyFixed := false
 
 	// Insert permissions: {} before jobs: if the workflow lacks one.
-	if newLines, r := fixPermissions(lines, data); r != nil {
-		lines = newLines
-		results = append(results, *r)
-		anyFixed = true
+	if !disabled.Permissions {
+		if newLines, r := fixPermissions(lines, data); r != nil {
+			lines = newLines
+			results = append(results, *r)
+			anyFixed = true
+		}
 	}
 
-	for i, line := range lines {
-		newLine, from, to, fixErr := fixLine(line, ignore, resolver)
-		if fixErr != nil {
-			results = append(results, FixResult{Line: i + 1, From: from, Err: fixErr})
-			continue // leave original line in place
-		}
-		if newLine != line {
-			lines[i] = newLine
-			results = append(results, FixResult{Line: i + 1, From: from, To: to})
-			anyFixed = true
+	if !disabled.Pins {
+		for i, line := range lines {
+			newLine, from, to, fixErr := fixLine(line, ignore, resolver)
+			if fixErr != nil {
+				results = append(results, FixResult{Line: i + 1, From: from, Err: fixErr})
+				continue // leave original line in place
+			}
+			if newLine != line {
+				lines[i] = newLine
+				results = append(results, FixResult{Line: i + 1, From: from, To: to})
+				anyFixed = true
+			}
 		}
 	}
 

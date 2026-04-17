@@ -93,7 +93,7 @@ jobs:
 	}
 
 	il := &IgnoreList{patterns: map[string]bool{"actions/checkout": true}}
-	warnings, err := CheckFile(f, il)
+	warnings, err := CheckFile(f, il, DisabledChecks{})
 	if err != nil {
 		t.Fatal(err)
 	}

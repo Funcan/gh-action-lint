@@ -13,7 +13,7 @@ const rawGitHubBase = "https://raw.githubusercontent.com"
 // recursing transitively into any further actions they use. GITHUB_TOKEN is used
 // for authentication if non-empty. Already-visited refs are skipped.
 // Warnings matching ignore are suppressed, but ignored actions are still traversed.
-func CheckRecursive(startUses []string, token string, ignore *IgnoreList) ([]Warning, error) {
+func CheckRecursive(startUses []string, token string, ignore *IgnoreList, disabled DisabledChecks) ([]Warning, error) {
 	visited := make(map[string]bool)
 	queue := startUses
 
@@ -34,7 +34,7 @@ func CheckRecursive(startUses []string, token string, ignore *IgnoreList) ([]War
 			continue
 		}
 
-		ws, allUses, err := parseContent(content, ref)
+		ws, allUses, err := parseContent(content, ref, disabled)
 		if err != nil {
 			continue
 		}

@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var fixDisable string
+
 var fixCmd = &cobra.Command{
 	Use:   "fix",
 	Short: "Pin unpinned actions to their resolved commit SHA",
@@ -27,9 +29,15 @@ Set GITHUB_TOKEN to authenticate requests and avoid rate limits.`,
 
 func init() {
 	rootCmd.AddCommand(fixCmd)
+	fixCmd.Flags().StringVar(&fixDisable, "disable-check", "", "comma-separated list of fixes to skip (pins,permissions)")
 }
 
 func runFix(cmd *cobra.Command, args []string) error {
+	disabled, err := lint.ParseDisabledChecks(fixDisable)
+	if err != nil {
+		return err
+	}
+
 	repoRoot, err := gitRepoRoot()
 	if err != nil {
 		return fmt.Errorf("not inside a git repository: %w", err)
@@ -55,7 +63,7 @@ func runFix(cmd *cobra.Command, args []string) error {
 
 	var totalFixed int
 	for _, f := range files {
-		results, err := lint.FixFile(f, ignore, resolver)
+		results, err := lint.FixFile(f, ignore, resolver, disabled)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: %s: %v\n", f, err)
 			continue

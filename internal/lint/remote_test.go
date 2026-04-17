@@ -48,7 +48,7 @@ jobs:
       - uses: ./local-action
       - uses: docker://alpine:3.18
 `)
-	ws, uses, err := parseContent(content, "ci.yml")
+	ws, uses, err := parseContent(content, "ci.yml", DisabledChecks{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -59,12 +59,12 @@ func FindActionFiles(repoRoot string) ([]string, error) {
 // any `uses:` values that are not pinned to a full commit SHA.
 // Warnings matching ignore are suppressed, but ignored actions are still returned
 // in allUses so callers can recurse into them.
-func CheckFile(path string, ignore *IgnoreList) ([]Warning, error) {
+func CheckFile(path string, ignore *IgnoreList, disabled DisabledChecks) ([]Warning, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	warnings, _, err := parseContent(data, path)
+	warnings, _, err := parseContent(data, path, disabled)
 	if err != nil {
 		return nil, err
 	}
@@ -77,12 +77,12 @@ func ExternalUsesFromFile(path string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, uses, err := parseContent(data, path)
+	_, uses, err := parseContent(data, path, DisabledChecks{})
 	return uses, err
 }
 
 // parseContent parses YAML bytes and returns both warnings and all external uses.
-func parseContent(data []byte, source string) ([]Warning, []string, error) {
+func parseContent(data []byte, source string, disabled DisabledChecks) ([]Warning, []string, error) {
 	var root yaml.Node
 	if err := yaml.Unmarshal(data, &root); err != nil {
 		return nil, nil, fmt.Errorf("parsing %s: %w", source, err)
@@ -92,12 +92,14 @@ func parseContent(data []byte, source string) ([]Warning, []string, error) {
 	}
 	var warnings []Warning
 	var allUses []string
-	walkNode(&root, source, &warnings, &allUses)
-	warnings = append(warnings, checkPermissions(&root, source)...)
+	walkNode(&root, source, &warnings, &allUses, disabled)
+	if !disabled.Permissions {
+		warnings = append(warnings, checkPermissions(&root, source)...)
+	}
 	return warnings, allUses, nil
 }
 
-func walkNode(node *yaml.Node, file string, warnings *[]Warning, allUses *[]string) {
+func walkNode(node *yaml.Node, file string, warnings *[]Warning, allUses *[]string, disabled DisabledChecks) {
 	if node.Kind == yaml.MappingNode {
 		for i := 0; i+1 < len(node.Content); i += 2 {
 			key := node.Content[i]
@@ -109,23 +111,26 @@ func walkNode(node *yaml.Node, file string, warnings *[]Warning, allUses *[]stri
 					if allUses != nil && isExternalUses(u) {
 						*allUses = append(*allUses, u)
 					}
-					if w := checkUses(u, file, value.Line); w != nil {
-						*warnings = append(*warnings, *w)
+					if !disabled.Pins {
+						if w := checkUses(u, file, value.Line); w != nil {
+							*warnings = append(*warnings, *w)
+						}
 					}
 				case "run":
-					// Block scalars (run: |) have content starting on the next line.
-					lineOffset := 0
-					if value.Style == yaml.LiteralStyle || value.Style == yaml.FoldedStyle {
-						lineOffset = 1
+					if !disabled.Injections {
+						lineOffset := 0
+						if value.Style == yaml.LiteralStyle || value.Style == yaml.FoldedStyle {
+							lineOffset = 1
+						}
+						*warnings = append(*warnings, checkRunInjection(value.Value, file, value.Line, lineOffset)...)
 					}
-					*warnings = append(*warnings, checkRunInjection(value.Value, file, value.Line, lineOffset)...)
 				}
 			}
-			walkNode(value, file, warnings, allUses)
+			walkNode(value, file, warnings, allUses, disabled)
 		}
 	} else {
 		for _, child := range node.Content {
-			walkNode(child, file, warnings, allUses)
+			walkNode(child, file, warnings, allUses, disabled)
 		}
 	}
 }

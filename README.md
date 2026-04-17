@@ -40,6 +40,15 @@ Set `GITHUB_TOKEN` to authenticate requests to GitHub and avoid rate limits:
 GITHUB_TOKEN=$(gh auth token) gh-action-lint check --recursive
 ```
 
+To skip specific checks, use `--disable-check` with a comma-separated list of check names:
+
+```sh
+gh-action-lint check --disable-check permissions
+gh-action-lint check --disable-check pins,injections
+```
+
+Valid check names are `pins`, `injections`, and `permissions`.
+
 ### Example output
 
 ```
@@ -187,6 +196,15 @@ Output:
 ```
 
 The original tag is preserved as a comment so the intent remains readable. Already-pinned actions and actions in `.gh-lint-ignore` are left untouched. `GITHUB_TOKEN` is required to resolve refs via the GitHub API.
+
+`fix` also accepts `--disable-check` to skip specific fixes:
+
+```sh
+gh-action-lint fix --disable-check permissions   # only pin actions, don't add permissions: {}
+gh-action-lint fix --disable-check pins          # only add permissions: {}, don't pin actions
+```
+
+Note: `injections` is not a valid target for `fix` (there is no automatic fix for script injection).
 
 To find a SHA manually:
 
