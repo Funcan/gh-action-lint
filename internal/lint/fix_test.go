@@ -1,6 +1,8 @@
 package lint
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -98,6 +100,56 @@ func TestFixLineStripsExistingComment(t *testing.T) {
 	}
 }
 
+func TestFixFile_DisabledPins(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "ci.yml")
+	content := "name: CI\non: push\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n"
+	if err := os.WriteFile(f, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// pins disabled — only the permissions fix should run (resolver not needed)
+	results, err := FixFile(f, nil, nil, DisabledChecks{Pins: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 1 || results[0].To != "permissions: {}" {
+		t.Errorf("expected only permissions fix, got: %v", results)
+	}
+	data, _ := os.ReadFile(f)
+	if !strings.Contains(string(data), "actions/checkout@v4") {
+		t.Error("expected checkout to remain unpinned when pins check is disabled")
+	}
+	if !strings.Contains(string(data), "permissions: {}") {
+		t.Error("expected permissions: {} to be added")
+	}
+}
+
+func TestFixFile_DisabledPermissions(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "ci.yml")
+	content := "name: CI\non: push\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n"
+	if err := os.WriteFile(f, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	resolver := &Resolver{
+		cache: map[string]string{"actions/checkout@v4": "aabbccddeeaabbccddeeaabbccddeeaabbccdd"},
+	}
+	// permissions disabled — only the pin fix should run
+	results, err := FixFile(f, nil, resolver, DisabledChecks{Permissions: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 1 || results[0].From != "actions/checkout@v4" {
+		t.Errorf("expected only pins fix, got: %v", results)
+	}
+	data, _ := os.ReadFile(f)
+	if strings.Contains(string(data), "permissions") {
+		t.Error("expected permissions block NOT to be added when permissions check is disabled")
+	}
+}
+
 func TestFixPermissionsMissing(t *testing.T) {
 	data := []byte("name: CI\non: push\njobs:\n  build:\n    runs-on: ubuntu-latest\n")
 	lines := strings.Split(string(data), "\n")
@@ -138,7 +190,8 @@ func TestFixPermissionsCompositeAction(t *testing.T) {
 	}
 }
 
-func containsSubstring(s, sub string) bool {	return len(s) >= len(sub) && (s == sub || len(sub) == 0 ||
+func containsSubstring(s, sub string) bool {
+	return len(s) >= len(sub) && (s == sub || len(sub) == 0 ||
 		func() bool {
 			for i := 0; i <= len(s)-len(sub); i++ {
 				if s[i:i+len(sub)] == sub {
