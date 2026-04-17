@@ -1,6 +1,7 @@
 package lint
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -97,8 +98,47 @@ func TestFixLineStripsExistingComment(t *testing.T) {
 	}
 }
 
-func containsSubstring(s, sub string) bool {
-	return len(s) >= len(sub) && (s == sub || len(sub) == 0 ||
+func TestFixPermissionsMissing(t *testing.T) {
+	data := []byte("name: CI\non: push\njobs:\n  build:\n    runs-on: ubuntu-latest\n")
+	lines := strings.Split(string(data), "\n")
+	newLines, r := fixPermissions(lines, data)
+	if r == nil {
+		t.Fatal("expected a FixResult for workflow missing permissions")
+	}
+	if r.To != "permissions: {}" {
+		t.Errorf("unexpected To: %s", r.To)
+	}
+	joined := strings.Join(newLines, "\n")
+	if !containsSubstring(joined, "permissions: {}") {
+		t.Errorf("expected permissions: {} in output:\n%s", joined)
+	}
+	// permissions: {} must appear before jobs:
+	permIdx := strings.Index(joined, "permissions: {}")
+	jobsIdx := strings.Index(joined, "jobs:")
+	if permIdx > jobsIdx {
+		t.Errorf("permissions: {} should appear before jobs:")
+	}
+}
+
+func TestFixPermissionsAlreadyPresent(t *testing.T) {
+	data := []byte("name: CI\non: push\npermissions: {}\njobs:\n  build:\n    runs-on: ubuntu-latest\n")
+	lines := strings.Split(string(data), "\n")
+	_, r := fixPermissions(lines, data)
+	if r != nil {
+		t.Errorf("expected no fix when permissions already declared, got: %+v", r)
+	}
+}
+
+func TestFixPermissionsCompositeAction(t *testing.T) {
+	data := []byte("name: My Action\nruns:\n  using: composite\n  steps: []\n")
+	lines := strings.Split(string(data), "\n")
+	_, r := fixPermissions(lines, data)
+	if r != nil {
+		t.Errorf("expected no fix for composite action (no jobs: key), got: %+v", r)
+	}
+}
+
+func containsSubstring(s, sub string) bool {	return len(s) >= len(sub) && (s == sub || len(sub) == 0 ||
 		func() bool {
 			for i := 0; i <= len(s)-len(sub); i++ {
 				if s[i:i+len(sub)] == sub {

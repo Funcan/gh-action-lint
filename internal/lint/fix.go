@@ -5,6 +5,8 @@ import (
 	"os"
 	"regexp"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 // usesLineRe matches a line containing a `uses:` directive.
@@ -21,8 +23,9 @@ type FixResult struct {
 
 // FixFile replaces unpinned action refs in path with their resolved SHAs, adding
 // the original ref as a comment. Actions matching ignore are left untouched.
-// Resolution failures are reported as FixResults with Err set rather than
-// aborting the whole file.
+// Workflow files that lack a top-level permissions block have permissions: {}
+// inserted before the jobs: key. Resolution failures are reported as FixResults
+// with Err set rather than aborting the whole file.
 func FixFile(path string, ignore *IgnoreList, resolver *Resolver) ([]FixResult, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -37,6 +40,13 @@ func FixFile(path string, ignore *IgnoreList, resolver *Resolver) ([]FixResult, 
 	lines := strings.Split(string(data), "\n")
 	var results []FixResult
 	anyFixed := false
+
+	// Insert permissions: {} before jobs: if the workflow lacks one.
+	if newLines, r := fixPermissions(lines, data); r != nil {
+		lines = newLines
+		results = append(results, *r)
+		anyFixed = true
+	}
 
 	for i, line := range lines {
 		newLine, from, to, fixErr := fixLine(line, ignore, resolver)
@@ -58,6 +68,50 @@ func FixFile(path string, ignore *IgnoreList, resolver *Resolver) ([]FixResult, 
 	}
 
 	return results, nil
+}
+
+// fixPermissions inserts "permissions: {}" before the jobs: key in a workflow
+// that has no top-level permissions declaration. Returns the modified lines and
+// a FixResult, or nil if no change is needed.
+func fixPermissions(lines []string, data []byte) ([]string, *FixResult) {
+	var root yaml.Node
+	if err := yaml.Unmarshal(data, &root); err != nil {
+		return lines, nil
+	}
+	if root.Kind == 0 || len(root.Content) == 0 {
+		return lines, nil
+	}
+	doc := root.Content[0]
+	if doc.Kind != yaml.MappingNode {
+		return lines, nil
+	}
+
+	var hasPermissions bool
+	var jobsLine int
+	for i := 0; i+1 < len(doc.Content); i += 2 {
+		switch doc.Content[i].Value {
+		case "permissions":
+			hasPermissions = true
+		case "jobs":
+			jobsLine = doc.Content[i].Line
+		}
+	}
+
+	// Only workflows (those with jobs:) need this fix.
+	if jobsLine == 0 || hasPermissions {
+		return lines, nil
+	}
+
+	insertAt := jobsLine - 1 // convert to 0-indexed
+	newLines := make([]string, 0, len(lines)+1)
+	newLines = append(newLines, lines[:insertAt]...)
+	newLines = append(newLines, "permissions: {}")
+	newLines = append(newLines, lines[insertAt:]...)
+	return newLines, &FixResult{
+		Line: jobsLine,
+		From: "no permissions declared",
+		To:   "permissions: {}",
+	}
 }
 
 // fixLine processes one line and returns the (possibly updated) line plus the
