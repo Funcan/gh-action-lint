@@ -93,6 +93,7 @@ func parseContent(data []byte, source string) ([]Warning, []string, error) {
 	var warnings []Warning
 	var allUses []string
 	walkNode(&root, source, &warnings, &allUses)
+	warnings = append(warnings, checkPermissions(&root, source)...)
 	return warnings, allUses, nil
 }
 

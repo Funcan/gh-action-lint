@@ -36,9 +36,10 @@ func TestSplitUses(t *testing.T) {
 }
 
 func TestExternalUsesFromFile(t *testing.T) {
-	import_content := []byte(`
+	content := []byte(`
 name: CI
 on: push
+permissions: {}
 jobs:
   build:
     steps:
@@ -47,7 +48,7 @@ jobs:
       - uses: ./local-action
       - uses: docker://alpine:3.18
 `)
-	ws, uses, err := parseContent(import_content, "ci.yml")
+	ws, uses, err := parseContent(content, "ci.yml")
 	if err != nil {
 		t.Fatal(err)
 	}

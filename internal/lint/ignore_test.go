@@ -8,20 +8,20 @@ import (
 
 func TestIsIgnored(t *testing.T) {
 	il := &IgnoreList{patterns: map[string]bool{
-		"actions/checkout":      true,
-		"actions/cache@v3":      true,
+		"actions/checkout": true,
+		"actions/cache@v3": true,
 	}}
 
 	tests := []struct {
 		uses string
 		want bool
 	}{
-		{"actions/checkout@v4", true},                                         // matched by name
-		{"actions/checkout@main", true},                                       // matched by name
-		{"actions/checkout@11bd317f7bc71dd3eee3f1bf1c58bc03de17e433", true},  // matched by name
-		{"actions/cache@v3", true},                                            // exact ref match
-		{"actions/cache@v2", false},                                           // different ref, no name match
-		{"actions/setup-go@v4", false},                                        // not in list
+		{"actions/checkout@v4", true},                                       // matched by name
+		{"actions/checkout@main", true},                                     // matched by name
+		{"actions/checkout@11bd317f7bc71dd3eee3f1bf1c58bc03de17e433", true}, // matched by name
+		{"actions/cache@v3", true},                                          // exact ref match
+		{"actions/cache@v2", false},                                         // different ref, no name match
+		{"actions/setup-go@v4", false},                                      // not in list
 	}
 
 	for _, tt := range tests {
@@ -79,6 +79,7 @@ func TestCheckFileWithIgnore(t *testing.T) {
 	content := `
 name: CI
 on: push
+permissions: {}
 jobs:
   build:
     runs-on: ubuntu-latest

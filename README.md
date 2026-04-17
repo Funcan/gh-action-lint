@@ -4,6 +4,7 @@ A linter for GitHub Actions workflows that detects common security vulnerabiliti
 
 - **Unpinned actions** — actions referenced by a tag or branch name rather than a full commit SHA
 - **Script injection** — user-controlled data embedded directly in `run:` steps
+- **Overly broad permissions** — workflows that omit `permissions:` or use `write-all`
 
 ## Installation
 
@@ -44,6 +45,7 @@ GITHUB_TOKEN=$(gh auth token) gh-action-lint check --recursive
 ```
 .github/workflows/ci.yml:7: action not pinned to a SHA: actions/checkout@v4
 .github/workflows/ci.yml:9: script injection: ${{ github.event.issue.title }} used directly in run step
+.github/workflows/ci.yml:1: no top-level permissions declared; GITHUB_TOKEN defaults to the repository's base permissions (use permissions: {} for least privilege)
 ```
 
 Exits with code `1` if any warnings are found, making it suitable for use in CI.
@@ -117,6 +119,43 @@ Assign the expression to an environment variable first. The shell then receives 
 ```
 
 The following user-controlled contexts are checked: issue/PR titles and bodies, comment and review bodies, commit messages, PR head branch name, discussion titles and bodies, and page names.
+
+### Workflow permissions
+
+Every workflow receives a `GITHUB_TOKEN` that is automatically scoped to the repository. By default its permissions are determined by your repository or organisation settings — which may be broader than a given workflow actually needs.
+
+Declaring `permissions:` explicitly at the top of the workflow applies the principle of least privilege: each workflow gets only what it needs, and nothing more. If a workflow is compromised (e.g., via script injection or a malicious action), a narrowly scoped token limits the blast radius.
+
+`gh-action-lint` warns when:
+
+- **No top-level `permissions:` is declared** — the token's scope depends on organisation/repository defaults, which may grant unintended write access.
+- **`permissions: write-all`** at the workflow or job level — this explicitly grants the token write access to every available scope.
+
+#### Examples
+
+```yaml
+# Bad — missing permissions block; defaults apply
+name: CI
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd317f7bc71dd3eee3f1bf1c58bc03de17e433 # v4
+
+# Bad — write-all is almost never necessary
+permissions: write-all
+
+# Good — empty block grants no permissions at all (safest default)
+permissions: {}
+
+# Good — only grant what the workflow actually needs
+permissions:
+  contents: read
+  pull-requests: write
+```
+
+Job-level `permissions:` blocks can further restrict a subset of jobs. `gh-action-lint` does not warn about missing job-level permissions when a workflow-level block is already present.
 
 ## Ignoring actions
 

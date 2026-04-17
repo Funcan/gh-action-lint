@@ -38,6 +38,7 @@ func TestCheckFile(t *testing.T) {
 	content := `
 name: CI
 on: push
+permissions: {}
 jobs:
   build:
     runs-on: ubuntu-latest
