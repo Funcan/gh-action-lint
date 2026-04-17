@@ -60,7 +60,7 @@ func runCheck(cmd *cobra.Command, args []string) error {
 		}
 		for _, w := range warnings {
 			rel := strings.TrimPrefix(f, repoRoot+"/")
-			fmt.Printf("%s:%d: action not pinned to a SHA: %s\n", rel, w.Line, w.Uses)
+			fmt.Printf("%s:%d: %s\n", rel, w.Line, w.Message)
 			total++
 		}
 
@@ -80,7 +80,7 @@ func runCheck(cmd *cobra.Command, args []string) error {
 			fmt.Fprintf(os.Stderr, "warning: recursive check failed: %v\n", err)
 		}
 		for _, w := range remoteWarnings {
-			fmt.Printf("%s:%d: action not pinned to a SHA: %s\n", w.File, w.Line, w.Uses)
+			fmt.Printf("%s:%d: %s\n", w.File, w.Line, w.Message)
 			total++
 		}
 	}

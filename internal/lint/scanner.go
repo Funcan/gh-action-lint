@@ -13,9 +13,10 @@ import (
 var shaPattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
 
 type Warning struct {
-	File string
-	Line int
-	Uses string
+	File    string
+	Line    int
+	Uses    string // non-empty for pinning warnings; used by ignore list filtering
+	Message string // full human-readable warning text
 }
 
 // FindActionFiles returns all workflow and composite action YAML files under repoRoot.
@@ -100,13 +101,23 @@ func walkNode(node *yaml.Node, file string, warnings *[]Warning, allUses *[]stri
 		for i := 0; i+1 < len(node.Content); i += 2 {
 			key := node.Content[i]
 			value := node.Content[i+1]
-			if key.Value == "uses" && value.Kind == yaml.ScalarNode {
-				u := value.Value
-				if allUses != nil && isExternalUses(u) {
-					*allUses = append(*allUses, u)
-				}
-				if w := checkUses(u, file, value.Line); w != nil {
-					*warnings = append(*warnings, *w)
+			if value.Kind == yaml.ScalarNode {
+				switch key.Value {
+				case "uses":
+					u := value.Value
+					if allUses != nil && isExternalUses(u) {
+						*allUses = append(*allUses, u)
+					}
+					if w := checkUses(u, file, value.Line); w != nil {
+						*warnings = append(*warnings, *w)
+					}
+				case "run":
+					// Block scalars (run: |) have content starting on the next line.
+					lineOffset := 0
+					if value.Style == yaml.LiteralStyle || value.Style == yaml.FoldedStyle {
+						lineOffset = 1
+					}
+					*warnings = append(*warnings, checkRunInjection(value.Value, file, value.Line, lineOffset)...)
 				}
 			}
 			walkNode(value, file, warnings, allUses)
@@ -145,12 +156,12 @@ func checkUses(uses, file string, line int) *Warning {
 	parts := strings.SplitN(uses, "@", 2)
 	if len(parts) != 2 {
 		// No ref at all — also worth warning about
-		return &Warning{File: file, Line: line, Uses: uses}
+		return &Warning{File: file, Line: line, Uses: uses, Message: "action not pinned to a SHA: " + uses}
 	}
 
 	ref := parts[1]
 	if !shaPattern.MatchString(ref) {
-		return &Warning{File: file, Line: line, Uses: uses}
+		return &Warning{File: file, Line: line, Uses: uses, Message: "action not pinned to a SHA: " + uses}
 	}
 
 	return nil

