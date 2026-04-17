@@ -56,13 +56,18 @@ func FindActionFiles(repoRoot string) ([]string, error) {
 
 // CheckFile parses a workflow or composite action file and returns warnings for
 // any `uses:` values that are not pinned to a full commit SHA.
-func CheckFile(path string) ([]Warning, error) {
+// Warnings matching ignore are suppressed, but ignored actions are still returned
+// in allUses so callers can recurse into them.
+func CheckFile(path string, ignore *IgnoreList) ([]Warning, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 	warnings, _, err := parseContent(data, path)
-	return warnings, err
+	if err != nil {
+		return nil, err
+	}
+	return filterWarnings(warnings, ignore), nil
 }
 
 // ExternalUsesFromFile returns all external action refs used in the file.
@@ -115,6 +120,19 @@ func walkNode(node *yaml.Node, file string, warnings *[]Warning, allUses *[]stri
 
 func isExternalUses(uses string) bool {
 	return !strings.HasPrefix(uses, "./") && !strings.HasPrefix(uses, "docker://")
+}
+
+func filterWarnings(warnings []Warning, ignore *IgnoreList) []Warning {
+	if ignore == nil || len(ignore.patterns) == 0 {
+		return warnings
+	}
+	filtered := warnings[:0]
+	for _, w := range warnings {
+		if !ignore.IsIgnored(w.Uses) {
+			filtered = append(filtered, w)
+		}
+	}
+	return filtered
 }
 
 // checkUses returns a Warning if the uses value is not pinned to a SHA.

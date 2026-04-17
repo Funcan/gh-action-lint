@@ -61,6 +61,20 @@ A `uses:` value is considered unsafe if the ref after `@` is not a full 40-chara
 | Local actions | `./my-action` | No remote ref |
 | Docker images | `docker://alpine:3.18` | Not a GitHub Action |
 
+### Ignoring actions
+
+Create a `.gh-lint-ignore` file at the root of your repository to suppress warnings for specific actions. Lines starting with `#` are comments.
+
+```
+# Trusted third-party actions — we accept the tag-pinning risk
+actions/checkout
+actions/cache@v3   # only suppress this specific ref
+```
+
+A pattern without a ref (e.g., `actions/checkout`) matches any ref of that action. A pattern with a ref (e.g., `actions/cache@v3`) matches only that exact ref.
+
+Ignored actions are still traversed during a `--recursive` check, so transitive dependencies of ignored actions are still reported.
+
 ### Fixing a warning
 
 Find the SHA for the version you want to pin to. For example, for `actions/checkout@v4`:

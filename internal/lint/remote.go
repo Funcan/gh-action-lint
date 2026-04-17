@@ -12,7 +12,8 @@ const rawGitHubBase = "https://raw.githubusercontent.com"
 // CheckRecursive fetches each action in startUses and checks for unpinned refs,
 // recursing transitively into any further actions they use. GITHUB_TOKEN is used
 // for authentication if non-empty. Already-visited refs are skipped.
-func CheckRecursive(startUses []string, token string) ([]Warning, error) {
+// Warnings matching ignore are suppressed, but ignored actions are still traversed.
+func CheckRecursive(startUses []string, token string, ignore *IgnoreList) ([]Warning, error) {
 	visited := make(map[string]bool)
 	queue := startUses
 
@@ -37,8 +38,10 @@ func CheckRecursive(startUses []string, token string) ([]Warning, error) {
 		if err != nil {
 			continue
 		}
-		warnings = append(warnings, ws...)
+		warnings = append(warnings, filterWarnings(ws, ignore)...)
 
+		// Always queue all discovered uses, even if the action itself is ignored,
+		// so we recurse into the full dependency graph.
 		for _, u := range allUses {
 			if !visited[u] {
 				queue = append(queue, u)

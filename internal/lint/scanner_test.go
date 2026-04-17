@@ -49,7 +49,7 @@ jobs:
 		t.Fatal(err)
 	}
 
-	warnings, err := CheckFile(f)
+	warnings, err := CheckFile(f, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

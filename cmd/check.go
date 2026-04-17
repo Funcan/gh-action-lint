@@ -34,6 +34,11 @@ func runCheck(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("not inside a git repository: %w", err)
 	}
 
+	ignore, err := lint.LoadIgnoreFile(repoRoot)
+	if err != nil {
+		return fmt.Errorf("loading ignore file: %w", err)
+	}
+
 	files, err := lint.FindActionFiles(repoRoot)
 	if err != nil {
 		return err
@@ -48,7 +53,7 @@ func runCheck(cmd *cobra.Command, args []string) error {
 	var allExternalUses []string
 
 	for _, f := range files {
-		warnings, err := lint.CheckFile(f)
+		warnings, err := lint.CheckFile(f, ignore)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: skipping %s: %v\n", f, err)
 			continue
@@ -70,7 +75,7 @@ func runCheck(cmd *cobra.Command, args []string) error {
 	if recursive {
 		token := os.Getenv("GITHUB_TOKEN")
 		fmt.Fprintf(os.Stderr, "checking %d external action(s) recursively...\n", len(dedupe(allExternalUses)))
-		remoteWarnings, err := lint.CheckRecursive(dedupe(allExternalUses), token)
+		remoteWarnings, err := lint.CheckRecursive(dedupe(allExternalUses), token, ignore)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: recursive check failed: %v\n", err)
 		}
