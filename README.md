@@ -77,7 +77,22 @@ Ignored actions are still traversed during a `--recursive` check, so transitive 
 
 ### Fixing a warning
 
-Find the SHA for the version you want to pin to. For example, for `actions/checkout@v4`:
+Run `fix` to automatically resolve all unpinned refs to their commit SHA:
+
+```sh
+GITHUB_TOKEN=$(gh auth token) gh-action-lint fix
+```
+
+Output:
+
+```
+.github/workflows/ci.yml:8: actions/checkout@v4 -> actions/checkout@11bd317f... # v4
+.github/workflows/ci.yml:9: actions/cache@v3 -> actions/cache@5a3ec84... # v3
+```
+
+The original tag is preserved as a comment so the intent remains readable. Already-pinned actions and actions in `.gh-lint-ignore` are left untouched. `GITHUB_TOKEN` is required to resolve refs via the GitHub API.
+
+### Finding a SHA manually
 
 ```sh
 git ls-remote https://github.com/actions/checkout refs/tags/v4
