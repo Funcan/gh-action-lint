@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/funcan/gh-action-lint/internal/lint"
 	"github.com/spf13/cobra"
@@ -33,28 +32,11 @@ func init() {
 }
 
 func runFix(cmd *cobra.Command, args []string) error {
-	disabled, err := lint.ParseDisabledChecks(fixDisable)
+	ctx, err := prepareRun(fixDisable)
 	if err != nil {
 		return err
 	}
-
-	repoRoot, err := gitRepoRoot()
-	if err != nil {
-		return fmt.Errorf("not inside a git repository: %w", err)
-	}
-
-	ignore, err := lint.LoadIgnoreFile(repoRoot)
-	if err != nil {
-		return fmt.Errorf("loading ignore file: %w", err)
-	}
-
-	files, err := lint.FindActionFiles(repoRoot)
-	if err != nil {
-		return err
-	}
-
-	if len(files) == 0 {
-		fmt.Fprintln(os.Stderr, "no GitHub Actions files found")
+	if ctx == nil {
 		return nil
 	}
 
@@ -62,14 +44,14 @@ func runFix(cmd *cobra.Command, args []string) error {
 	resolver := lint.NewResolver(token)
 
 	var totalFixed int
-	for _, f := range files {
-		results, err := lint.FixFile(f, ignore, resolver, disabled)
+	for _, f := range ctx.files {
+		results, err := lint.FixFile(f, ctx.ignore, resolver, ctx.disabled)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: %s: %v\n", f, err)
 			continue
 		}
 
-		rel := strings.TrimPrefix(f, repoRoot+"/")
+		rel := ctx.relPath(f)
 		for _, r := range results {
 			if r.Err != nil {
 				fmt.Fprintf(os.Stderr, "warning: %s:%d: cannot pin %s: %v\n", rel, r.Line, r.From, r.Err)
@@ -80,7 +62,7 @@ func runFix(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if totalFixed == 0 && len(files) > 0 {
+	if totalFixed == 0 && len(ctx.files) > 0 {
 		fmt.Println("nothing to fix")
 	}
 

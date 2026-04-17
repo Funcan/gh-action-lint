@@ -3,8 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"os/exec"
-	"strings"
 
 	"github.com/funcan/gh-action-lint/internal/lint"
 	"github.com/spf13/cobra"
@@ -31,43 +29,25 @@ func init() {
 }
 
 func runCheck(cmd *cobra.Command, args []string) error {
-	disabled, err := lint.ParseDisabledChecks(checkDisable)
+	ctx, err := prepareRun(checkDisable)
 	if err != nil {
 		return err
 	}
-
-	repoRoot, err := gitRepoRoot()
-	if err != nil {
-		return fmt.Errorf("not inside a git repository: %w", err)
-	}
-
-	ignore, err := lint.LoadIgnoreFile(repoRoot)
-	if err != nil {
-		return fmt.Errorf("loading ignore file: %w", err)
-	}
-
-	files, err := lint.FindActionFiles(repoRoot)
-	if err != nil {
-		return err
-	}
-
-	if len(files) == 0 {
-		fmt.Fprintln(os.Stderr, "no GitHub Actions files found")
+	if ctx == nil {
 		return nil
 	}
 
 	var total int
 	var allExternalUses []string
 
-	for _, f := range files {
-		warnings, err := lint.CheckFile(f, ignore, disabled)
+	for _, f := range ctx.files {
+		warnings, err := lint.CheckFile(f, ctx.ignore, ctx.disabled)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: skipping %s: %v\n", f, err)
 			continue
 		}
 		for _, w := range warnings {
-			rel := strings.TrimPrefix(f, repoRoot+"/")
-			fmt.Printf("%s:%d: %s\n", rel, w.Line, w.Message)
+			fmt.Printf("%s:%d: %s\n", ctx.relPath(f), w.Line, w.Message)
 			total++
 		}
 
@@ -82,7 +62,7 @@ func runCheck(cmd *cobra.Command, args []string) error {
 	if recursive {
 		token := os.Getenv("GITHUB_TOKEN")
 		fmt.Fprintf(os.Stderr, "checking %d external action(s) recursively...\n", len(dedupe(allExternalUses)))
-		remoteWarnings, err := lint.CheckRecursive(dedupe(allExternalUses), token, ignore, disabled)
+		remoteWarnings, err := lint.CheckRecursive(dedupe(allExternalUses), token, ctx.ignore, ctx.disabled)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: recursive check failed: %v\n", err)
 		}
@@ -96,14 +76,6 @@ func runCheck(cmd *cobra.Command, args []string) error {
 		os.Exit(1)
 	}
 	return nil
-}
-
-func gitRepoRoot() (string, error) {
-	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(out)), nil
 }
 
 func dedupe(ss []string) []string {
