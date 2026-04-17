@@ -189,5 +189,3 @@ func TestFixPermissionsCompositeAction(t *testing.T) {
 		t.Errorf("expected no fix for composite action (no jobs: key), got: %+v", r)
 	}
 }
-
-

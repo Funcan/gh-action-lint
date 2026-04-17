@@ -23,13 +23,8 @@ type Warning struct {
 func FindActionFiles(repoRoot string) ([]string, error) {
 	var files []string
 
-	patterns := []string{
-		".github/workflows/*.yml",
-		".github/workflows/*.yaml",
-	}
-
-	for _, pattern := range patterns {
-		matches, err := filepath.Glob(filepath.Join(repoRoot, pattern))
+	for _, ext := range []string{"yml", "yaml"} {
+		matches, err := filepath.Glob(filepath.Join(repoRoot, ".github", "workflows", "*."+ext))
 		if err != nil {
 			return nil, err
 		}
@@ -37,19 +32,17 @@ func FindActionFiles(repoRoot string) ([]string, error) {
 	}
 
 	// Also find composite actions nested under .github/actions/
-	for _, name := range []string{"action.yml", "action.yaml"} {
-		err := filepath.WalkDir(filepath.Join(repoRoot, ".github", "actions"), func(path string, d os.DirEntry, err error) error {
-			if err != nil {
-				return nil // skip unreadable dirs
-			}
-			if !d.IsDir() && d.Name() == name {
-				files = append(files, path)
-			}
-			return nil
-		})
-		if err != nil && !os.IsNotExist(err) {
-			return nil, err
+	err := filepath.WalkDir(filepath.Join(repoRoot, ".github", "actions"), func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil // skip unreadable dirs
 		}
+		if !d.IsDir() && (d.Name() == "action.yml" || d.Name() == "action.yaml") {
+			files = append(files, path)
+		}
+		return nil
+	})
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
 	}
 
 	return files, nil
