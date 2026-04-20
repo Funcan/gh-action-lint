@@ -2,9 +2,9 @@
 
 A linter for GitHub Actions workflows that detects common security vulnerabilities. Currently checks for:
 
-- **Unpinned actions** — actions referenced by a tag or branch name rather than a full commit SHA
-- **Script injection** — user-controlled data embedded directly in `run:` steps
-- **Overly broad permissions** — workflows that omit `permissions:` or use `write-all`
+- **Unpinned actions** - actions referenced by a tag or branch name rather than a full commit SHA
+- **Script injection** - user-controlled data embedded directly in `run:` steps
+- **Overly broad permissions** - workflows that omit `permissions:` or use `write-all`
 
 ## Installation
 
@@ -63,15 +63,15 @@ Exits with code `1` if any warnings are found, making it suitable for use in CI.
 
 ### Unpinned actions
 
-Pinning to a tag like `@v4` or `@main` means your workflow silently changes if the upstream maintainer (or an attacker who has compromised their account) moves the tag. This is a supply chain attack vector — your CI pipeline executes whatever code the tag now points to.
+Pinning to a tag like `@v4` or `@main` means your workflow silently changes if the upstream maintainer (or an attacker who has compromised their account) moves the tag. This is a supply chain attack vector - your CI pipeline executes whatever code the tag now points to.
 
 Pinning to a full 40-character commit SHA gives you a tamper-resistant, fully reproducible build. The tag can be kept as a comment for readability:
 
 ```yaml
-# Unsafe — tag can be silently moved
+# Unsafe - tag can be silently moved
 - uses: actions/checkout@v4
 
-# Safe — exact content is locked in
+# Safe - exact content is locked in
 - uses: actions/checkout@11bd317f7bc71dd3eee3f1bf1c58bc03de17e433 # v4
 ```
 
@@ -84,7 +84,7 @@ The following `uses:` patterns are not flagged:
 
 ### Script injection
 
-GitHub Actions expressions (`${{ ... }}`) are evaluated **before** the shell runs. If a user-controlled value — such as an issue title or PR branch name — is placed directly inside a `run:` step, an attacker can break out of the intended command and run arbitrary code in your CI environment.
+GitHub Actions expressions (`${{ ... }}`) are evaluated **before** the shell runs. If a user-controlled value - such as an issue title or PR branch name - is placed directly inside a `run:` step, an attacker can break out of the intended command and run arbitrary code in your CI environment.
 
 #### Example attack
 
@@ -118,10 +118,10 @@ The `GITHUB_TOKEN` (and anything else in the environment) is exfiltrated.
 Assign the expression to an environment variable first. The shell then receives the value as data, not as part of the command string, so shell metacharacters in the value are harmless:
 
 ```yaml
-# Unsafe — expression is interpolated into the shell command
+# Unsafe - expression is interpolated into the shell command
 - run: echo "${{ github.event.issue.title }}"
 
-# Safe — value is passed via the environment, not interpolated
+# Safe - value is passed via the environment, not interpolated
 - env:
     TITLE: ${{ github.event.issue.title }}
   run: echo "$TITLE"
@@ -131,19 +131,19 @@ The following user-controlled contexts are checked: issue/PR titles and bodies, 
 
 ### Workflow permissions
 
-Every workflow receives a `GITHUB_TOKEN` that is automatically scoped to the repository. By default its permissions are determined by your repository or organisation settings — which may be broader than a given workflow actually needs.
+Every workflow receives a `GITHUB_TOKEN` that is automatically scoped to the repository. By default its permissions are determined by your repository or organisation settings - which may be broader than a given workflow actually needs.
 
 Declaring `permissions:` explicitly at the top of the workflow applies the principle of least privilege: each workflow gets only what it needs, and nothing more. If a workflow is compromised (e.g., via script injection or a malicious action), a narrowly scoped token limits the blast radius.
 
 `gh-action-lint` warns when:
 
-- **No top-level `permissions:` is declared** — the token's scope depends on organisation/repository defaults, which may grant unintended write access.
-- **`permissions: write-all`** at the workflow or job level — this explicitly grants the token write access to every available scope.
+- **No top-level `permissions:` is declared** - the token's scope depends on organisation/repository defaults, which may grant unintended write access.
+- **`permissions: write-all`** at the workflow or job level - this explicitly grants the token write access to every available scope.
 
 #### Examples
 
 ```yaml
-# Bad — missing permissions block; defaults apply
+# Bad - missing permissions block; defaults apply
 name: CI
 on: push
 jobs:
@@ -152,13 +152,13 @@ jobs:
     steps:
       - uses: actions/checkout@11bd317f7bc71dd3eee3f1bf1c58bc03de17e433 # v4
 
-# Bad — write-all is almost never necessary
+# Bad - write-all is almost never necessary
 permissions: write-all
 
-# Good — empty block grants no permissions at all (safest default)
+# Good - empty block grants no permissions at all (safest default)
 permissions: {}
 
-# Good — only grant what the workflow actually needs
+# Good - only grant what the workflow actually needs
 permissions:
   contents: read
   pull-requests: write
@@ -171,7 +171,7 @@ Job-level `permissions:` blocks can further restrict a subset of jobs. `gh-actio
 Create a `.gh-lint-ignore` file at the root of your repository to suppress unpinned-action warnings for specific actions. Lines starting with `#` are comments. Script injection warnings are always reported and cannot be suppressed here.
 
 ```
-# Trusted third-party actions — we accept the tag-pinning risk
+# Trusted third-party actions - we accept the tag-pinning risk
 actions/checkout
 actions/cache@v3   # only suppress this specific ref
 ```
@@ -214,4 +214,4 @@ git ls-remote https://github.com/actions/checkout refs/tags/v4
 
 ## License
 
-GPLv2 — see [LICENSE](LICENSE).
+GPLv2 - see [LICENSE](LICENSE).
