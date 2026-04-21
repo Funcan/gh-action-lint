@@ -44,17 +44,20 @@ func runFix(cmd *cobra.Command, args []string) error {
 	resolver := lint.NewResolver(token)
 
 	var totalFixed int
+	var anyErrors bool
 	for _, f := range ctx.files {
 		results, err := lint.FixFile(f, ctx.ignore, resolver, ctx.disabled)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: %s: %v\n", f, err)
+			anyErrors = true
 			continue
 		}
 
 		rel := ctx.relPath(f)
 		for _, r := range results {
 			if r.Err != nil {
-				fmt.Fprintf(os.Stderr, "warning: %s:%d: cannot pin %s: %v\n", rel, r.Line, r.From, r.Err)
+				fmt.Fprintf(os.Stderr, "error: %s:%d: cannot pin %s: %v\n", rel, r.Line, r.From, r.Err)
+				anyErrors = true
 			} else {
 				fmt.Printf("%s:%d: %s -> %s\n", rel, r.Line, r.From, r.To)
 				totalFixed++
@@ -62,8 +65,12 @@ func runFix(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if totalFixed == 0 && len(ctx.files) > 0 {
+	if !anyErrors && totalFixed == 0 && len(ctx.files) > 0 {
 		fmt.Println("nothing to fix")
+	}
+
+	if anyErrors {
+		os.Exit(1)
 	}
 
 	return nil
