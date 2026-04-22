@@ -89,6 +89,9 @@ func parseContent(data []byte, source string, disabled DisabledChecks) ([]Warnin
 	if !disabled.Permissions {
 		warnings = append(warnings, checkPermissions(&root, source)...)
 	}
+	if !disabled.PullRequestTarget {
+		warnings = append(warnings, checkPullRequestTarget(&root, source)...)
+	}
 	return warnings, allUses, nil
 }
 

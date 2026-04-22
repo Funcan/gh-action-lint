@@ -12,6 +12,7 @@ func TestParseDisabledChecks(t *testing.T) {
 		{"pins", DisabledChecks{Pins: true}, false},
 		{"injections", DisabledChecks{Injections: true}, false},
 		{"permissions", DisabledChecks{Permissions: true}, false},
+		{"pull-request-target", DisabledChecks{PullRequestTarget: true}, false},
 		{"pins,permissions", DisabledChecks{Pins: true, Permissions: true}, false},
 		{"pins,injections,permissions", DisabledChecks{Pins: true, Injections: true, Permissions: true}, false},
 		{"pins, permissions", DisabledChecks{Pins: true, Permissions: true}, false}, // spaces trimmed
