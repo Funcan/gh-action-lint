@@ -46,7 +46,7 @@ func checkPermissions(root *yaml.Node, source string) []Warning {
 		warnings = append(warnings, Warning{
 			File:    source,
 			Line:    1,
-			Message: "no top-level permissions declared; GITHUB_TOKEN defaults to the repository's base permissions (use permissions: {} for least privilege)",
+			Message: "no top-level permissions declared; GITHUB_TOKEN defaults to the repository's base permissions (use permissions: read repo as a safe starting point, or restrict further)",
 		})
 	case permNode.Kind == yaml.ScalarNode && permNode.Value == "write-all":
 		warnings = append(warnings, Warning{

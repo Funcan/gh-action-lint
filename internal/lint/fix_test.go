@@ -113,15 +113,15 @@ func TestFixFile_DisabledPins(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(results) != 1 || results[0].To != "permissions: {}" {
+	if len(results) != 1 || results[0].To != "permissions: contents: read" {
 		t.Errorf("expected only permissions fix, got: %v", results)
 	}
 	data, _ := os.ReadFile(f)
 	if !strings.Contains(string(data), "actions/checkout@v4") {
 		t.Error("expected checkout to remain unpinned when pins check is disabled")
 	}
-	if !strings.Contains(string(data), "permissions: {}") {
-		t.Error("expected permissions: {} to be added")
+	if !strings.Contains(string(data), "contents: read") {
+		t.Error("expected contents: read to be added")
 	}
 }
 
@@ -157,18 +157,18 @@ func TestFixPermissionsMissing(t *testing.T) {
 	if r == nil {
 		t.Fatal("expected a FixResult for workflow missing permissions")
 	}
-	if r.To != "permissions: {}" {
+	if r.To != "permissions: contents: read" {
 		t.Errorf("unexpected To: %s", r.To)
 	}
 	joined := strings.Join(newLines, "\n")
-	if !strings.Contains(joined, "permissions: {}") {
-		t.Errorf("expected permissions: {} in output:\n%s", joined)
+	if !strings.Contains(joined, "contents: read") {
+		t.Errorf("expected contents: read in output:\n%s", joined)
 	}
-	// permissions: {} must appear before jobs:
-	permIdx := strings.Index(joined, "permissions: {}")
+	// permissions: and contents: read must appear before jobs:
+	permIdx := strings.Index(joined, "permissions:")
 	jobsIdx := strings.Index(joined, "jobs:")
 	if permIdx > jobsIdx {
-		t.Errorf("permissions: {} should appear before jobs:")
+		t.Errorf("permissions block should appear before jobs:")
 	}
 }
 

@@ -56,7 +56,7 @@ jobs:
 }
 
 func TestCheckPermissions_Empty(t *testing.T) {
-	// permissions: {} means no access at all — safest setting
+	// permissions: {} means no access at all — still valid, won't trigger a warning
 	content := `
 name: CI
 on: push

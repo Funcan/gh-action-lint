@@ -109,12 +109,13 @@ func fixPermissions(lines []string, data []byte) ([]string, *FixResult) {
 	insertAt := jobsLine - 1 // convert to 0-indexed
 	newLines := make([]string, 0, len(lines)+1)
 	newLines = append(newLines, lines[:insertAt]...)
-	newLines = append(newLines, "permissions: {}")
+	newLines = append(newLines, "permissions:")
+	newLines = append(newLines, "  contents: read")
 	newLines = append(newLines, lines[insertAt:]...)
 	return newLines, &FixResult{
 		Line: jobsLine,
 		From: "no permissions declared",
-		To:   "permissions: {}",
+		To:   "permissions: contents: read",
 	}
 }
 

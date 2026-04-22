@@ -200,8 +200,8 @@ The original tag is preserved as a comment so the intent remains readable. Alrea
 `fix` also accepts `--disable-check` to skip specific fixes:
 
 ```sh
-gh-action-lint fix --disable-check permissions   # only pin actions, don't add permissions: {}
-gh-action-lint fix --disable-check pins          # only add permissions: {}, don't pin actions
+gh-action-lint fix --disable-check permissions   # only pin actions, don't try to fix permissions
+gh-action-lint fix --disable-check pins          # only fix missing permissions, don't pin actions
 ```
 
 Note: `injections` is not a valid target for `fix` (there is no automatic fix for script injection).
