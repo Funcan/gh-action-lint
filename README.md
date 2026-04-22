@@ -5,6 +5,7 @@ A linter for GitHub Actions workflows that detects common security vulnerabiliti
 - **Unpinned actions** - actions referenced by a tag or branch name rather than a full commit SHA
 - **Script injection** - user-controlled data embedded directly in `run:` steps
 - **Overly broad permissions** - workflows that omit `permissions:` or use `write-all`
+- **`pull_request_target` with untrusted checkout** - workflows that run fork code with write access and secrets
 
 ## Installation
 
@@ -47,7 +48,7 @@ gh-action-lint check --disable-check permissions
 gh-action-lint check --disable-check pins,injections
 ```
 
-Valid check names are `pins`, `injections`, and `permissions`.
+Valid check names are `pins`, `injections`, `permissions`, and `pull-request-target`.
 
 ### Example output
 
@@ -165,6 +166,53 @@ permissions:
 ```
 
 Job-level `permissions:` blocks can further restrict a subset of jobs. `gh-action-lint` does not warn about missing job-level permissions when a workflow-level block is already present.
+
+### `pull_request_target` with untrusted checkout
+
+The `pull_request_target` trigger is designed for workflows that need write access or secrets when responding to pull requests — for example, auto-labelling a PR or posting a comment. Unlike `pull_request`, it runs in the context of the **base branch** (not the contributor's fork), so it always has access to the repository's write token and secrets, even when the PR comes from an external fork.
+
+This is safe as long as the workflow only reads information about the PR (its title, labels, etc.) and does not run code from it. The danger arises when the workflow also checks out the PR's head ref:
+
+```yaml
+on: pull_request_target
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd317f7bc71dd3eee3f1bf1c58bc03de17e433 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}  # checks out fork code
+      - run: ./build.sh                                   # runs that untrusted code
+```
+
+Now a contributor can put anything they like in `build.sh`, and it executes with full access to the repository's secrets and write token. This is effectively a remote code execution vulnerability in your CI pipeline.
+
+`gh-action-lint` flags any step in a `pull_request_target` workflow that passes a user-controlled ref to `actions/checkout`:
+
+```
+.github/workflows/ci.yml:9: pull_request_target: checkout of PR head ref runs untrusted code with write access and secrets
+```
+
+The fix depends on what the workflow actually needs:
+
+- **If it doesn't need to build or test the PR code** — remove the checkout entirely, or check out the base branch (the default when no `ref:` is given).
+- **If it does need to build the PR code** — split into two workflows: use `pull_request` to run the untrusted build in a sandboxed environment, then use `workflow_run` to react to the completed run result with write access.
+
+```yaml
+# Safe - checks out base branch, not the PR's code
+- uses: actions/checkout@11bd317f7bc71dd3eee3f1bf1c58bc03de17e433 # v4
+  # no ref: — defaults to the base branch
+
+# Safe - checks out PR code but without secrets (pull_request trigger)
+on: pull_request
+```
+
+To disable this check:
+
+```sh
+gh-action-lint check --disable-check pull-request-target
+```
 
 ## Ignoring actions
 
