@@ -24,8 +24,13 @@ func TestDangerousExpressionsIn(t *testing.T) {
 		{`echo "${{ secrets.TOKEN }}"`, 0},
 		// Safe — env var indirection
 		{`echo "$TITLE"`, 0},
+		// workflow_dispatch / reusable workflow inputs
+		{`echo "${{ github.event.inputs.name }}"`, 1},
+		{`echo "${{ inputs.name }}"`, 1},
+		{`echo "${{ inputs.foo }} ${{ inputs.bar }}"`, 2},
 		// Case-insensitive match
 		{`echo "${{ GITHUB.EVENT.ISSUE.TITLE }}"`, 1},
+		{`echo "${{ INPUTS.NAME }}"`, 1},
 	}
 
 	for _, tt := range tests {
