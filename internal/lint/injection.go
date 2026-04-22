@@ -31,6 +31,8 @@ var dangerousContexts = []string{
 	"github.event.head_commit.author.email",
 	"github.event.pages",
 	"github.head_ref",
+	"github.event.inputs.",
+	"inputs.",
 }
 
 // checkRunInjection scans a run: value for dangerous expression interpolation.
