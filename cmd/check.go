@@ -11,6 +11,7 @@ import (
 var recursive bool
 var checkDisable string
 var checkStaged bool
+var checkQuiet bool
 
 var checkCmd = &cobra.Command{
 	Use:   "check",
@@ -28,6 +29,7 @@ func init() {
 	checkCmd.Flags().BoolVarP(&recursive, "recursive", "r", false, "also check actions used by the repo's actions")
 	checkCmd.Flags().StringVar(&checkDisable, "disable-check", "", "comma-separated list of checks to skip (pins,injections,permissions)")
 	checkCmd.Flags().BoolVar(&checkStaged, "staged", false, "only check files that are staged in git")
+	checkCmd.Flags().BoolVarP(&checkQuiet, "quiet", "q", false, "suppress lint output; exit 0 for clean, 1 for violations")
 }
 
 func runCheck(cmd *cobra.Command, args []string) error {
@@ -49,7 +51,9 @@ func runCheck(cmd *cobra.Command, args []string) error {
 			continue
 		}
 		for _, w := range warnings {
-			fmt.Printf("%s:%d: %s\n", ctx.relPath(f), w.Line, w.Message)
+			if !checkQuiet {
+				fmt.Printf("%s:%d: %s\n", ctx.relPath(f), w.Line, w.Message)
+			}
 			total++
 		}
 
@@ -63,13 +67,17 @@ func runCheck(cmd *cobra.Command, args []string) error {
 
 	if recursive {
 		token := os.Getenv("GITHUB_TOKEN")
-		fmt.Fprintf(os.Stderr, "checking %d external action(s) recursively...\n", len(dedupe(allExternalUses)))
+		if !checkQuiet {
+			fmt.Fprintf(os.Stderr, "checking %d external action(s) recursively...\n", len(dedupe(allExternalUses)))
+		}
 		remoteWarnings, err := lint.CheckRecursive(dedupe(allExternalUses), token, ctx.ignore, ctx.disabled)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: recursive check failed: %v\n", err)
 		}
 		for _, w := range remoteWarnings {
-			fmt.Printf("%s:%d: %s\n", w.File, w.Line, w.Message)
+			if !checkQuiet {
+				fmt.Printf("%s:%d: %s\n", w.File, w.Line, w.Message)
+			}
 			total++
 		}
 	}
