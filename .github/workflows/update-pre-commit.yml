@@ -47,7 +47,7 @@ jobs:
             git add .pre-commit-config.yaml
             git diff --cached --quiet && echo "No changes to commit" && exit 0
             git commit -m "$TITLE"
-            git push origin "$BRANCH"
+            git push --force-with-lease origin "$BRANCH"
             gh pr edit "$PR_NUMBER" --title "$TITLE" --body "$BODY"
           else
             BRANCH="chore/update-pre-commit-rev-${TAG}"
@@ -55,7 +55,7 @@ jobs:
             git add .pre-commit-config.yaml
             git diff --cached --quiet && echo "No changes to commit" && exit 0
             git commit -m "$TITLE"
-            git push origin "$BRANCH"
+            git push --force-with-lease origin "$BRANCH"
             gh pr create \
               --title "$TITLE" \
               --body "$BODY" \
