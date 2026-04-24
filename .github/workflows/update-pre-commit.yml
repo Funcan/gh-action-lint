@@ -51,6 +51,7 @@ jobs:
             gh pr edit "$PR_NUMBER" --title "$TITLE" --body "$BODY"
           else
             BRANCH="chore/update-pre-commit-rev-${TAG}"
+            git fetch origin "$BRANCH" || true
             git checkout -b "$BRANCH"
             git add .pre-commit-config.yaml
             git diff --cached --quiet && echo "No changes to commit" && exit 0
