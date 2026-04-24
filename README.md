@@ -214,6 +214,27 @@ To disable this check:
 gh-action-lint check --disable-check pull-request-target
 ```
 
+## Pre-commit hook
+
+`gh-action-lint` can be used as a [pre-commit](https://pre-commit.com) hook. Add this to your `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: https://github.com/funcan/gh-action-lint
+    rev: v1.1.0  # use the latest release tag
+    hooks:
+      - id: gh-action-lint
+```
+
+The hook runs `gh-action-lint check --staged`, so it only checks workflow and action files that are part of the current commit. It triggers whenever a file under `.github/workflows/`, `.github/actions/`, or a root `action.yml`/`action.yaml` is staged.
+
+To disable specific checks, pass `args` in your config:
+
+```yaml
+      - id: gh-action-lint
+        args: [--disable-check, permissions]
+```
+
 ## Ignoring actions
 
 Create a `.gh-lint-ignore` file at the root of your repository to suppress unpinned-action warnings for specific actions. Lines starting with `#` are comments. Script injection warnings are always reported and cannot be suppressed here.
