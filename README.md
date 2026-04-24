@@ -41,6 +41,14 @@ Set `GITHUB_TOKEN` to authenticate requests to GitHub and avoid rate limits:
 GITHUB_TOKEN=$(gh auth token) gh-action-lint check --recursive
 ```
 
+For use in scripts or CI where you only care about the exit code, use `--quiet` / `-q` to suppress all lint output:
+
+```sh
+gh-action-lint check --quiet
+```
+
+Exit code is still `0` (clean) or `1` (violations found). Errors such as git failures are still printed.
+
 To skip specific checks, use `--disable-check` with a comma-separated list of check names:
 
 ```sh
