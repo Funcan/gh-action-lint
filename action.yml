@@ -1,0 +1,51 @@
+name: 'gh-action-lint'
+description: 'Lint GitHub Actions workflows for unpinned actions, script injection, and overly broad permissions'
+author: 'Funcan'
+
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  recursive:
+    description: 'Also check actions used by the repo''s actions (requires github-token)'
+    required: false
+    default: 'false'
+  disable-check:
+    description: 'Comma-separated list of checks to skip (pins, injections, permissions, pull-request-target)'
+    required: false
+    default: ''
+  quiet:
+    description: 'Suppress lint output; exit 0 for clean, 1 for violations'
+    required: false
+    default: 'false'
+  github-token:
+    description: 'GitHub token for API requests. Required for --recursive. Defaults to the built-in token.'
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Install gh-action-lint
+      shell: bash
+      run: |
+        go install github.com/funcan/gh-action-lint@latest
+        echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+    - name: Run gh-action-lint
+      shell: bash
+      run: |
+        args=(check)
+        if [ "${{ inputs.recursive }}" = "true" ]; then
+          args+=(--recursive)
+        fi
+        if [ -n "${{ inputs.disable-check }}" ]; then
+          args+=(--disable-check "${{ inputs.disable-check }}")
+        fi
+        if [ "${{ inputs.quiet }}" = "true" ]; then
+          args+=(--quiet)
+        fi
+        gh-action-lint "${args[@]}"
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token || github.token }}
