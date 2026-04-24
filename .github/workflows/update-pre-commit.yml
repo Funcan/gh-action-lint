@@ -39,7 +39,7 @@ jobs:
           BODY="Bumps the \`rev\` for \`https://github.com/funcan/gh-action-lint\` in \`.pre-commit-config.yaml\` to \`${TAG}\`."
 
           # Check for an existing open PR from a previous release
-          EXISTING=$(gh pr list --state open --search "chore: update pre-commit rev" --json number,headRefName --jq '.[0] | "\(.number) \(.headRefName)"')
+          EXISTING=$(gh pr list --state open --search "chore: update pre-commit rev" --json number,headRefName --jq 'if length > 0 then .[0] | "\(.number) \(.headRefName)" else "" end')
           if [ -n "$EXISTING" ]; then
             PR_NUMBER=$(echo "$EXISTING" | cut -d' ' -f1)
             BRANCH=$(echo "$EXISTING" | cut -d' ' -f2)
