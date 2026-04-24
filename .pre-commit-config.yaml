@@ -1,0 +1,5 @@
+repos:
+  - repo: https://github.com/funcan/gh-action-lint
+    rev: v1.2.0
+    hooks:
+      - id: gh-action-lint
