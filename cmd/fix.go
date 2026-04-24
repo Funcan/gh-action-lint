@@ -9,6 +9,7 @@ import (
 )
 
 var fixDisable string
+var fixStaged bool
 
 var fixCmd = &cobra.Command{
 	Use:   "fix",
@@ -29,10 +30,11 @@ Set GITHUB_TOKEN to authenticate requests and avoid rate limits.`,
 func init() {
 	rootCmd.AddCommand(fixCmd)
 	fixCmd.Flags().StringVar(&fixDisable, "disable-check", "", "comma-separated list of fixes to skip (pins,permissions)")
+	fixCmd.Flags().BoolVar(&fixStaged, "staged", false, "only fix files that are staged in git")
 }
 
 func runFix(cmd *cobra.Command, args []string) error {
-	ctx, err := prepareRun(fixDisable)
+	ctx, err := prepareRun(fixDisable, fixStaged)
 	if err != nil {
 		return err
 	}
