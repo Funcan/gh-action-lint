@@ -1,0 +1,7 @@
+- id: gh-action-lint
+  name: gh-action-lint
+  description: Lint GitHub Actions workflow files for unpinned actions, script injection, and overly broad permissions
+  entry: gh-action-lint check --staged
+  language: golang
+  pass_filenames: false
+  files: '(\.github/(workflows|actions)/|^action\.ya?ml$)'
