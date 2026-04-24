@@ -222,6 +222,48 @@ To disable this check:
 gh-action-lint check --disable-check pull-request-target
 ```
 
+## GitHub Action
+
+`gh-action-lint` can be run directly as a GitHub Action. Add a step to any workflow:
+
+```yaml
+- uses: funcan/gh-action-lint@v1  # pin to a SHA in production
+```
+
+The action installs `gh-action-lint` via `go install` (Go must be available on the runner — all GitHub-hosted runners include it) and runs `gh-action-lint check`.
+
+### Inputs
+
+| Input | Description | Default |
+|---|---|---|
+| `recursive` | Also check actions used by the repo's actions | `false` |
+| `disable-check` | Comma-separated checks to skip (`pins`, `injections`, `permissions`, `pull-request-target`) | `''` |
+| `quiet` | Suppress lint output; only the exit code indicates pass/fail | `false` |
+| `github-token` | GitHub token for API requests (required for `recursive`) | `github.token` |
+
+### Example
+
+```yaml
+name: Lint workflows
+on:
+  push:
+    paths:
+      - '.github/**'
+      - 'action.yml'
+      - 'action.yaml'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: funcan/gh-action-lint@v1  # pin to a SHA in production
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
 ## Pre-commit hook
 
 `gh-action-lint` can be used as a [pre-commit](https://pre-commit.com) hook. Add this to your `.pre-commit-config.yaml`:
