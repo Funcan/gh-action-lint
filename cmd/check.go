@@ -10,6 +10,7 @@ import (
 
 var recursive bool
 var checkDisable string
+var checkStaged bool
 
 var checkCmd = &cobra.Command{
 	Use:   "check",
@@ -26,10 +27,11 @@ Set GITHUB_TOKEN to authenticate requests and avoid rate limits.`,
 func init() {
 	checkCmd.Flags().BoolVarP(&recursive, "recursive", "r", false, "also check actions used by the repo's actions")
 	checkCmd.Flags().StringVar(&checkDisable, "disable-check", "", "comma-separated list of checks to skip (pins,injections,permissions)")
+	checkCmd.Flags().BoolVar(&checkStaged, "staged", false, "only check files that are staged in git")
 }
 
 func runCheck(cmd *cobra.Command, args []string) error {
-	ctx, err := prepareRun(checkDisable)
+	ctx, err := prepareRun(checkDisable, checkStaged)
 	if err != nil {
 		return err
 	}
