@@ -21,7 +21,7 @@ repository for any 'uses:' references not pinned to a full commit SHA.
 
 With --recursive, also fetches each used action from GitHub and checks whether
 it in turn uses any unpinned actions, traversing the full dependency graph.
-Set GITHUB_TOKEN to authenticate requests and avoid rate limits.`,
+The GitHub token is taken from GH_TOKEN, GITHUB_TOKEN, or 'gh auth token'.`,
 	RunE: runCheck,
 }
 
@@ -66,7 +66,7 @@ func runCheck(cmd *cobra.Command, args []string) error {
 	}
 
 	if recursive {
-		token := os.Getenv("GITHUB_TOKEN")
+		token := githubToken()
 		if !checkQuiet {
 			fmt.Fprintf(os.Stderr, "checking %d external action(s) recursively...\n", len(dedupe(allExternalUses)))
 		}

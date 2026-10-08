@@ -23,7 +23,7 @@ becomes:
   uses: actions/checkout@11bd317f7bc71dd3eee3f1bf1c58bc03de17e433 # v4
 
 Actions listed in .gh-lint-ignore are not modified.
-Set GITHUB_TOKEN to authenticate requests and avoid rate limits.`,
+The GitHub token is taken from GH_TOKEN, GITHUB_TOKEN, or 'gh auth token'.`,
 	RunE: runFix,
 }
 
@@ -42,7 +42,7 @@ func runFix(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	token := os.Getenv("GITHUB_TOKEN")
+	token := githubToken()
 	resolver := lint.NewResolver(token)
 
 	var totalFixed int
