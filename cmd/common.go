@@ -113,3 +113,18 @@ func gitOutput(args ...string) ([]byte, error) {
 	}
 	return out, nil
 }
+
+// githubToken returns a GitHub token from GH_TOKEN, GITHUB_TOKEN, or the gh
+// CLI's stored credentials, in that order. It returns "" if none is available.
+func githubToken() string {
+	for _, env := range []string{"GH_TOKEN", "GITHUB_TOKEN"} {
+		if t := os.Getenv(env); t != "" {
+			return t
+		}
+	}
+	out, err := exec.Command("gh", "auth", "token").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}

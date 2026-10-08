@@ -35,10 +35,10 @@ To also check whether the actions your workflows depend on are themselves using 
 gh-action-lint check --recursive
 ```
 
-Set `GITHUB_TOKEN` to authenticate requests to GitHub and avoid rate limits:
+Requests to GitHub are authenticated with a token from `GH_TOKEN`, `GITHUB_TOKEN`, or `gh auth token` (in that order), which makes private repositories visible and avoids strict rate limits:
 
 ```sh
-GITHUB_TOKEN=$(gh auth token) gh-action-lint check --recursive
+gh-action-lint check --recursive
 ```
 
 For use in scripts or CI where you only care about the exit code, use `--quiet` / `-q` to suppress all lint output:
@@ -57,6 +57,15 @@ gh-action-lint check --disable-check pins,injections
 ```
 
 Valid check names are `pins`, `injections`, `permissions`, and `pull-request-target`.
+
+To update all actions to the latest upstream version and pin them to their
+current commit SHA, run:
+
+```sh
+gh-action-lint update
+```
+
+See [Updating actions](#updating-actions) for details.
 
 ### Example output
 
@@ -304,7 +313,7 @@ Ignored actions are still traversed during a `--recursive` check, so transitive 
 Run `fix` to automatically resolve all unpinned refs to their current commit SHA:
 
 ```sh
-GITHUB_TOKEN=$(gh auth token) gh-action-lint fix
+gh-action-lint fix
 ```
 
 Output:
@@ -314,7 +323,7 @@ Output:
 .github/workflows/ci.yml:9: actions/cache@v3 -> actions/cache@5a3ec84... # v3
 ```
 
-The original tag is preserved as a comment so the intent remains readable. Already-pinned actions and actions in `.gh-lint-ignore` are left untouched. `GITHUB_TOKEN` is required to resolve refs via the GitHub API.
+The original tag is preserved as a comment so the intent remains readable. Already-pinned actions and actions in `.gh-lint-ignore` are left untouched. A GitHub token is required to resolve refs via the GitHub API; it is read from `GH_TOKEN`, then `GITHUB_TOKEN`, then `gh auth token`, so private repositories are visible. Rate-limited API requests are retried with backoff.
 
 `fix` also accepts `--disable-check` to skip specific fixes:
 
@@ -329,6 +338,34 @@ To find a SHA manually:
 
 ```sh
 git ls-remote https://github.com/actions/checkout refs/tags/v4
+```
+
+## Updating actions
+
+Run `update` to move every action to its latest upstream release tag, pinned to that tag's commit SHA:
+
+```sh
+gh-action-lint update
+```
+
+Output:
+
+```
+.github/workflows/ci.yml:8: actions/checkout@v4 -> actions/checkout@v5
+.github/workflows/ci.yml:9: actions/setup-go@v5.0.0 -> actions/setup-go@v5.6.0
+```
+
+The line is rewritten as `uses: actions/checkout@<sha> # v5`. For already-pinned actions the current version is read from the `# vX` comment. The tag's precision is kept where possible (`v4` -> `v5`, `v4.1.0` -> `v5.0.1`). Pre-release tags are ignored, and refs that aren't release versions (e.g. `@main`), pins without a version comment, and actions in `.gh-lint-ignore` are left untouched.
+
+```sh
+gh-action-lint update --no-major-bump          # stay on the current major version
+gh-action-lint update --action actions/checkout  # only update one action
+```
+
+With `--no-major-bump`, a warning is printed for each action that has a newer major version available:
+
+```
+.github/workflows/ci.yml:9: warning: actions/setup-go v7.0.0 is available (not bumping major version)
 ```
 
 ## License
